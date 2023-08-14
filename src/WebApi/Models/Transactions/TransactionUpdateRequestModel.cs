@@ -2,7 +2,7 @@
 
 namespace WebApi.Models.Transactions;
 
-public sealed record TransactionUpdateRequestModel(Guid TransactionId, string TransactionBy, decimal Amount)
+public sealed record TransactionUpdateRequestModel(Guid TransactionId, string TransactionBy, decimal Amount, byte[] ConcurrencyToken)
 {
     public sealed class Validator : AbstractValidator<TransactionUpdateRequestModel>
     {

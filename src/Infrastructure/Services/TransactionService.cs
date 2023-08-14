@@ -1,6 +1,7 @@
 ﻿using Infrastructure.Contexts.Contracts;
 using Infrastructure.DTOs;
 using Infrastructure.Entities;
+using Infrastructure.Exceptions;
 using Infrastructure.Services.Contracts;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,22 +16,31 @@ public class TransactionService : ITransactionService
         _dbContext = dbContext;
     }
 
-    public async Task<Guid> CreateTransactionAsync(string transactionBy, decimal amount, CancellationToken cancellationToken = default)
+    public async Task<Guid> CreateTransactionAsync(TransactionCreateDto dto, CancellationToken cancellationToken = default)
     {
-        var transaction = Transaction.Create(transactionBy, amount);
+        var transaction = Transaction.Create(dto.TransactionBy, dto.Amount);
         await _dbContext.Transactions.AddAsync(transaction, cancellationToken);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return transaction.Id;
     }
 
-    public Task UpdateTransactionAsync(Guid transactionId, string transactionBy, decimal amount, CancellationToken cancellationToken = default)
+    public async Task UpdateTransactionAsync(TransactionUpdateDto dto, CancellationToken cancellationToken = default)
     {
-        return _dbContext
-            .Transactions
-            .Where(x => x.Id == transactionId)
-            .ExecuteUpdateAsync(
-                x => x.SetProperty(y => y.TransactionBy, transactionBy)
-                    .SetProperty(y => y.Amount, amount), cancellationToken);
+        var transaction = await _dbContext.Transactions
+            .FirstOrDefaultAsync(x => x.Id == dto.Id, cancellationToken);
+
+        if (transaction is null)
+        {
+            throw new NotFoundException();
+        }
+
+        if (!transaction.ConcurrencyToken.SequenceEqual(dto.ConcurrencyToken))
+        {
+            throw new ConcurrencyConflictException();
+        }
+        
+        transaction.Update(dto.TransactionBy, dto.Amount);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public Task DeleteTransactionAsync(Guid transactionId, CancellationToken cancellationToken = default)
@@ -45,7 +55,7 @@ public class TransactionService : ITransactionService
     {
         return _dbContext
             .Transactions
-            .Select(x => new TransactionDto(x.Id, x.TransactionBy, x.Amount, x.Time))
+            .Select(x => new TransactionDto(x.Id, x.TransactionBy, x.Amount, x.Time, x.ConcurrencyToken))
             .FirstOrDefaultAsync(x => x.Id == transactionId, cancellationToken);
     }
 
@@ -53,7 +63,7 @@ public class TransactionService : ITransactionService
     {
         return await _dbContext
             .Transactions
-            .Select(x => new TransactionDto(x.Id, x.TransactionBy, x.Amount, x.Time))
+            .Select(x => new TransactionDto(x.Id, x.TransactionBy, x.Amount, x.Time, x.ConcurrencyToken))
             .ToListAsync(cancellationToken);
     }
 }

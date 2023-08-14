@@ -1,4 +1,6 @@
-﻿using Infrastructure.Services.Contracts;
+﻿using Infrastructure.DTOs;
+using Infrastructure.Exceptions;
+using Infrastructure.Services.Contracts;
 using Microsoft.AspNetCore.Mvc;
 using WebApi.Extensions;
 using WebApi.Models.Transactions;
@@ -27,7 +29,10 @@ public class TransactionsController : ControllerBase
 
         if (validator.IsValid)
         {
-            var transactionId = await _transactionService.CreateTransactionAsync(request.TransactionBy, request.Amount, cancellationToken);
+            var transactionId = await _transactionService.CreateTransactionAsync(
+                new TransactionCreateDto(request.TransactionBy, request.Amount),
+                cancellationToken);
+
             var url = Url.Action(nameof(Get), new
             {
                 transactionId
@@ -61,13 +66,30 @@ public class TransactionsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IResult> Put(TransactionUpdateRequestModel request, CancellationToken cancellationToken)
     {
-        await _transactionService.UpdateTransactionAsync(
-            request.TransactionId,
-            request.TransactionBy,
-            request.Amount,
-            cancellationToken);
+        try
+        {
+            await _transactionService.UpdateTransactionAsync(
+                new TransactionUpdateDto(
+                    request.TransactionId,
+                    request.TransactionBy,
+                    request.Amount,
+                    request.ConcurrencyToken),
+                cancellationToken);
 
-        return Results.Ok();
+            return Results.Ok();
+        }
+        catch (NotFoundException)
+        {
+            return Results.BadRequest("Transaction not found");
+        }
+        catch (ConcurrencyConflictException)
+        {
+            return Results.Conflict("Concurrency conflict");
+        }
+        catch (Exception e)
+        {
+            return Results.Problem(e.Message);
+        }
     }
 
     [HttpDelete("{transactionId:guid}")]

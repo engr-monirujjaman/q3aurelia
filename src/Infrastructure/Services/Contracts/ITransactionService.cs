@@ -4,9 +4,9 @@ namespace Infrastructure.Services.Contracts;
 
 public interface ITransactionService
 {
-    Task<Guid> CreateTransactionAsync(string transactionBy, decimal amount, CancellationToken cancellationToken = default);
+    Task<Guid> CreateTransactionAsync(TransactionCreateDto dto, CancellationToken cancellationToken = default);
 
-    Task UpdateTransactionAsync(Guid transactionId, string transactionBy, decimal amount, CancellationToken cancellationToken = default);
+    Task UpdateTransactionAsync(TransactionUpdateDto dto, CancellationToken cancellationToken = default);
 
     Task DeleteTransactionAsync(Guid transactionId, CancellationToken cancellationToken = default);
 

@@ -19,6 +19,7 @@ public static class ConfigureServices
         services.AddScoped<IAppDbContext>(x => x.GetRequiredService<AppDbContext>());
 
         services.AddScoped<ITransactionService, TransactionService>();
+        services.AddScoped<IReportService, ReportService>();
         
         return services;
     }
